@@ -4,6 +4,8 @@ from telegram import (ReplyKeyboardMarkup, ReplyKeyboardRemove)
 from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters,
 						  ConversationHandler)
 import os
+
+#Constants depending on bot's release way
 PORT = int(os.environ.get('PORT', 5000))
 TOKEN = ''
 HOST_URL = ''
@@ -11,11 +13,15 @@ HOST_URL = ''
 # Enable logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
 					level=logging.INFO)
-
 logger = logging.getLogger(__name__)
-users = {}
-INFO, QUESTION = range(2)
 
+#Dict to store user's data
+users = {}
+
+#Label to handle convesation
+QUESTION = range(1)
+
+#Questions to ask user
 questions=(
 '1. Для меня как отрицательные, так и положительные эмоции служат источником знания о том, как поступать в жизни.',
 '2. Отрицательные эмоции помогают мне понять, что я должен изменить в своей жизни.',
@@ -49,12 +55,13 @@ questions=(
 '30. Я могу легко отключиться от переживания неприятностей.'
 )
 
+#Variations of answer to the questions
 answers = (('Полностью согласен', 'Полностью не согласен'),
 	(' В основном согласен', 'В основном не согласен'),
 	('Отчасти согласен', 'Отчасти не согласен'))
 
+#Class to store user's characteristics in one object
 class USER(object):
-	"""class for each user"""
 	def __init__(self):
 		self.em_osv = 0
 		self.upr = 0
@@ -62,7 +69,9 @@ class USER(object):
 		self.emp = 0
 		self.rasp = 0
 		self.progress = 0
-	
+
+#Function to handle /start command
+#Returns label to start asking questions
 def start(update, context):
 	reply_keyboard = [['Start!']]
 	users[update.message.from_user.id] = USER()
@@ -72,10 +81,12 @@ def start(update, context):
 
 	return QUESTION
 
-
+#Function to handle answers to the past question and ask a new one
+#If it's not the last question, returns label to continue asking questions
+#else returns label to end conversation
 def question(update, context):
 	user = update.message.from_user
-
+	#computing scores of each parameter after every answer
 	if users[user.id].progress > 0:
 		val=0
 		if update.message.text in answers[0]:
@@ -97,13 +108,14 @@ def question(update, context):
 			users[user.id].rasp+=val
 
 	if users[update.message.from_user.id].progress < 30:
+	#continue asking
 		update.message.reply_text(questions[users[update.message.from_user.id].progress],
 			reply_markup=ReplyKeyboardMarkup(answers))
 
 		users[update.message.from_user.id].progress+=1
 		return QUESTION
 	else:
-
+	#end conversation and give results
 		update.message.reply_text("""
 Эмоциональная осведомленность: {0}/36
 Управление своими эмоциями: {1}/36
@@ -117,6 +129,7 @@ def question(update, context):
 				users[user.id].rasp), reply_markup=ReplyKeyboardRemove())
 		return ConversationHandler.END
 
+#Fallback function to end convesation immediately
 def cancel(update, context):
 	user = update.message.from_user
 	logger.info("User %s canceled the conversation.", user.first_name)
@@ -125,17 +138,17 @@ def cancel(update, context):
 
 	return ConversationHandler.END
 
-
+#Log Errors caused by Updates.
 def error(update, context):
-	"""Log Errors caused by Updates."""
 	logger.warning('Update "%s" caused error "%s"', update, context.error)
 
 
 def main():
+	#Objects to handle receive
 	updater = Updater(TOKEN, use_context=True)
-
 	dp = updater.dispatcher
 
+	#Handle the conversation
 	conv_handler = ConversationHandler(
 		entry_points=[CommandHandler('start', start)],
 
